@@ -14,7 +14,6 @@ from playwright.sync_api import sync_playwright
 def install_playwright_browsers():
     try:
         subprocess.run(["playwright", "install", "chromium"], check=True)
-        subprocess.run(["playwright", "install-deps"], check=True)  # For Linux dependencies
         print("Playwright browsers installed successfully")
     except subprocess.CalledProcessError as e:
         print(f"Failed to install Playwright browsers: {e}")

@@ -10,10 +10,17 @@ from flask import Flask, request, jsonify
 from fp.fp import FreeProxy
 import unidecode
 from playwright.sync_api import sync_playwright
-from playwright.__main__ import main as playwright_install
 
-# Install browsers if missing
-playwright_install(["install", "chromium"])
+def install_playwright_browsers():
+    try:
+        subprocess.run(["playwright", "install", "chromium"], check=True)
+        subprocess.run(["playwright", "install-deps"], check=True)  # For Linux dependencies
+        print("Playwright browsers installed successfully")
+    except subprocess.CalledProcessError as e:
+        print(f"Failed to install Playwright browsers: {e}")
+
+# Call the installation function when starting
+install_playwright_browsers()
 
 app = Flask(__name__)
 PORT = int(os.getenv('PORT', 11000))

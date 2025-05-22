@@ -282,11 +282,11 @@ def create_account(account_info):
         month_dropdown = Select(driver.find_element(By.ID, "month"))
         month_dropdown.select_by_value(month)
         
-        day_field = driver.find_element(By.ID, "day"))
+        day_field = driver.find_element(By.ID, "day")
         day_field.clear()
         day_field.send_keys(day)
         
-        year_field = driver.find_element(By.ID, "year"))
+        year_field = driver.find_element(By.ID, "year")
         year_field.clear()
         year_field.send_keys(year)
         

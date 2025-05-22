@@ -111,9 +111,22 @@ def get_working_proxy():
     try:
         proxy = FreeProxy(rand=True, timeout=1).get()
         print(f"Using proxy: {proxy}")
-        return proxy
+        
+        # Clean the proxy string if it has protocol
+        if proxy.startswith('http://'):
+            proxy = proxy[7:]
+        elif proxy.startswith('https://'):
+            proxy = proxy[8:]
+            
+        # Split host and port
+        parts = proxy.split(':')
+        if len(parts) == 2:
+            return proxy
+        else:
+            print(f"Invalid proxy format: {proxy}")
+            return None
     except Exception as e:
-        print("Failed to get proxy, continuing without proxy")
+        print(f"Failed to get proxy: {e}")
         return None
 
 def save_account_to_file(account):
@@ -174,8 +187,7 @@ def create_custom_account():
                 "account": result
             },
             "meta": {
-                "duration": f"{(time.time() - start_time):.2f} seconds",
-                "method": "custom"
+                "duration": f"{(time.time() - start_time):.2f} seconds"
             }
         }
         return jsonify(response)
@@ -230,8 +242,7 @@ def create_random_accounts():
                 "requested": limit,
                 "created": len(accounts),
                 "failed": len(errors),
-                "duration": f"{(time.time() - start_time):.2f} seconds",
-                "method": "random"
+                "duration": f"{(time.time() - start_time):.2f} seconds"
             },
             "data": {
                 "accounts": {i+1: acc for i, acc in enumerate(accounts)}
@@ -287,7 +298,7 @@ def create_account(account_info):
         next_button.click()
 
         # Fill birthday and gender
-        day, month, year = account_info['birthday'].split()
+        month, day, year = account_info['birthday'].split()
         month_dropdown = Select(driver.find_element(By.ID, "month"))
         month_dropdown.select_by_value(month)
         

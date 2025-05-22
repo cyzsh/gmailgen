@@ -10,6 +10,10 @@ from flask import Flask, request, jsonify
 from fp.fp import FreeProxy
 import unidecode
 from playwright.sync_api import sync_playwright
+from playwright.__main__ import main as playwright_install
+
+# Install browsers if missing
+playwright_install(["install", "chromium"])
 
 app = Flask(__name__)
 PORT = int(os.getenv('PORT', 11000))

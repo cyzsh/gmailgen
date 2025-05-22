@@ -90,7 +90,7 @@ def parse_birthday(bd_param):
                     
                     # Validate date
                     if 1 <= day <= 31 and 1 <= month <= 12 and 1900 < year < datetime.now().year - Config.MIN_AGE:
-                        return f"{day} {month} {year}"
+                        return f"{month} {day} {year}"
                 except ValueError:
                     continue
     

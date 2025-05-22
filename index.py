@@ -71,7 +71,7 @@ def generate_random_birthday():
     birth_year = current_year - random.randint(Config.MIN_AGE, Config.MAX_AGE)
     birth_month = random.randint(1, 12)
     birth_day = random.randint(1, 28)  # Safe day for all months
-    return f"{birth_day} {birth_month} {birth_year}"
+    return f"{birth_month} {birth_day} {birth_year}"
 
 def parse_birthday(bd_param):
     if not bd_param:

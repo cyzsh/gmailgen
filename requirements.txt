@@ -1,5 +1,6 @@
 selenium
 requests
+flask
 webdriver-manager
 unidecode
 fp

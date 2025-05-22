@@ -1,6 +1,5 @@
-selenium
+playwright
 requests
 flask
-webdriver-manager
 unidecode
 free-proxy

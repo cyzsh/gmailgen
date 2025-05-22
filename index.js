@@ -1,468 +1,439 @@
-require('geckodriver');
-const express = require('express');
-const { Builder, By, until } = require('selenium-webdriver');
-const firefox = require('selenium-webdriver/firefox');
-const { Select } = require('selenium-webdriver/lib/select');
-const unidecode = require('unidecode');
-const { v4: uuidv4 } = require('uuid');
-const FreeProxy = require('fp-free-proxy');
-const cors = require('cors');
-const bodyParser = require('body-parser');
-const fs = require('fs');
-const path = require('path');
+import os
+import json
+import random
+import string
+import time
+import uuid
+from datetime import datetime, timedelta
+from pathlib import Path
+from flask import Flask, request, jsonify
+from selenium import webdriver
+from selenium.webdriver.common.by import By
+from selenium.webdriver.support.ui import WebDriverWait
+from selenium.webdriver.support import expected_conditions as EC
+from selenium.webdriver.firefox.options import Options
+from selenium.webdriver.support.select import Select
+from fp.fp import FreeProxy
+import unidecode
 
-const app = express();
-const PORT = process.env.PORT || 11000;
+app = Flask(__name__)
+PORT = int(os.getenv('PORT', 11000))
 
-// Middleware
-app.use(cors());
-app.use(bodyParser.json());
-app.use(bodyParser.urlencoded({ extended: true }));
-
-// Configuration
-const CONFIG = {
-    MAX_RANDOM_ACCOUNTS: 10,
-    DEFAULT_BIRTHDAY: "17 10 2000",
-    DEFAULT_GENDER: "1",
-    DEFAULT_PASSWORD: "SecurePass123!",
-    USER_AGENTS: [
+# Configuration
+class Config:
+    MAX_RANDOM_ACCOUNTS = 10
+    DEFAULT_GENDER = "male"
+    MIN_AGE = 18
+    MAX_AGE = 60
+    USER_AGENTS = [
         "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36",
-    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/14.0.3 Safari/605.1.15",
-    "Mozilla/5.0 (Linux; Android 10; SM-G975F) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Mobile Safari/537.36",
-    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/106.0.0.0 Safari/537.36 Edg/106.0.1370.52",
-    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/92.0.4515.131 YaBrowser/21.8.1.468 Yowser/2.5 Safari/537.36",
-    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/106.0.0.0 Safari/537.36",
-    "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:106.0) Gecko/20100101 Firefox/106.0",
-    "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:105.0) Gecko/20100101 Firefox/105.0",
-    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/107.0.0.0 Safari/537.36",
-    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/105.0.0.0 Safari/537.36",
-    "Mozilla/5.0 (X11; Linux x86_64; rv:105.0) Gecko/20100101 Firefox/105.0",
-    "Mozilla/5.0 (X11; CrOS x86_64 14440.0.0) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/99.0.4807.0 Safari/537.36",
-    "Mozilla/5.0 (X11; CrOS x86_64 14467.0.2022) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/99.0.4838.0 Safari/537.36",
-    "Mozilla/5.0 (X11; CrOS x86_64 14469.7.0) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/99.0.4844.13 Safari/537.36",
-    "Mozilla/5.0 (X11; CrOS x86_64 14455.0.0) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/99.0.4827.0 Safari/537.36",
-    "Mozilla/5.0 (X11; CrOS x86_64 14469.11.0) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/99.0.4844.17 Safari/537.36",
-    "Mozilla/5.0 (X11; CrOS x86_64 14436.0.0) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/99.0.4803.0 Safari/537.36",
-    "Mozilla/5.0 (X11; CrOS x86_64 14475.0.0) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/99.0.4840.0 Safari/537.36",
-    "Mozilla/5.0 (X11; CrOS x86_64 14469.3.0) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/99.0.4844.9 Safari/537.36",
-    "Mozilla/5.0 (X11; CrOS x86_64 14471.0.0) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/99.0.4840.0 Safari/537.36",
-    "Mozilla/5.0 (X11; CrOS x86_64 14388.37.0) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/99.0.4844.9 Safari/537.36",
-    "Mozilla/5.0 (X11; CrOS x86_64 14409.0.0) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/99.0.4829.0 Safari/537.36",
-    "Mozilla/5.0 (X11; CrOS x86_64 14395.0.2021) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/99.0.4765.0 Safari/537.36",
-    "Mozilla/5.0 (X11; CrOS x86_64 14469.8.0) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/99.0.4844.14 Safari/537.36",
-    "Mozilla/5.0 (X11; CrOS x86_64 14484.0.0) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/99.0.4840.0 Safari/537.36",
-    "Mozilla/5.0 (X11; CrOS x86_64 14450.0.0) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/99.0.4817.0 Safari/537.36",
-    "Mozilla/5.0 (X11; CrOS x86_64 14473.0.0) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/99.0.4840.0 Safari/537.36",
-    "Mozilla/5.0 (X11; CrOS x86_64 14324.72.0) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/97.0.4692.91 Safari/537.36",
-    "Mozilla/5.0 (X11; CrOS x86_64 14454.0.2022) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/99.0.4824.0 Safari/537.36",
-    "Mozilla/5.0 (X11; CrOS x86_64 14453.0.0) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/99.0.4816.0 Safari/537.36",
-    "Mozilla/5.0 (X11; CrOS x86_64 14447.0.0) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/99.0.4815.0 Safari/537.36",
-    "Mozilla/5.0 (X11; CrOS x86_64 14477.0.0) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/99.0.4840.0 Safari/537.36",
-    "Mozilla/5.0 (X11; CrOS x86_64 14476.0.0) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/99.0.4840.0 Safari/537.36",
-    "Mozilla/5.0 (X11; CrOS x86_64 14469.8.0) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/99.0.4844.9 Safari/537.36",
-    "Mozilla/5.0 (X11; CrOS x86_64 14588.67.0) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/101.0.4951.41 Safari/537.36",
-    "Mozilla/5.0 (X11; CrOS x86_64 14588.67.0) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/101.0.0.0 Safari/537.36",
-    "Mozilla/5.0 (X11; CrOS x86_64 14526.69.0) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/100.0.4896.82 Safari/537.36",
-    "Mozilla/5.0 (X11; CrOS x86_64 14695.25.0) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/102.0.5005.22 Safari/537.36",
-    "Mozilla/5.0 (X11; CrOS x86_64 14526.89.0) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/100.0.4896.91 Safari/537.36"
-    ],
-    FIRST_NAMES: [
-        "Akira", "Li", "Mohammed", "James", "Maria", "Hiroshi", "Wang", "Ali", "John", "Ana",
-  "Yuki", "Zhang", "Fatima", "Robert", "Liza", "Kenji", "Chen", "Aisha", "Michael", "Rosa",
-  "Haruto", "Huang", "Zainab", "David", "Carla", "Sakura", "Lin", "Omar", "William", "Gloria",
-  "Takeshi", "Cheng", "Salma", "Joseph", "Isabel", "Yoshio", "Deng", "Nadia", "Richard", "Sofia",
-  "Ryu", "Feng", "Samir", "Charles", "Valentina", "Emi", "Zhao", "Amira", "Thomas", "Mia",
-  "Kaito", "Sun", "Karim", "Christopher", "Luna", "Hana", "Qian", "Layla", "Daniel", "Sophia",
-  "Satoru", "Wu", "Nour", "Matthew", "Isabella", "Tsubasa", "Xu", "Aya", "George", "Emma",
-  "Haruki", "Zhu", "Yasmine", "Anthony", "Olivia", "Arata", "Jiang", "Samira", "Mark", "Maya",
-  "Kazuki", "Hu", "Rania", "Steven", "Ariana", "Noboru", "Gao", "Leila", "Paul", "Grace",
-  "Shinji", "Cai", "Amal", "Andrew", "Victoria", "Ren", "Dong", "Khadija", "James", "Natalie",
-  "Tatsuya", "Lin", "Ibrahim", "Daniel", "Lila", "Yuto", "Xie", "Aaliyah", "Henry", "Zoe",
-  "Hiroki", "Liang", "Malik", "Ethan", "Mila", "Daiki", "Peng", "Nour", "Jacob", "Chloe"
-    ],
-    LAST_NAMES: [
-        "Tanaka", "Li", "Al-Saud", "Smith", "Garcia", "Suzuki", "Wang", "Al-Mansour", "Johnson", "Rodriguez",
-  "Yamamoto", "Zhang", "Al-Fahad", "Williams", "Lopez", "Nakamura", "Chen", "Al-Hussein", "Brown", "Martinez",
-  "Sato", "Huang", "Al-Ghamdi", "Jones", "Gonzalez", "Takahashi", "Lin", "Al-Jaber", "Davis", "Sanchez",
-  "Kobayashi", "Wong", "Al-Sharif", "Miller", "Torres", "Yamada", "Cheng", "Al-Khateeb", "Wilson", "Flores",
-  "Ito", "Feng", "Al-Qahtani", "Taylor", "Nguyen", "Kimura", "Zhao", "Al-Dossary", "Anderson", "Kim",
-  "Saito", "Sun", "Al-Tamimi", "Thomas", "Singh", "Matsumoto", "Xu", "Al-Hamad", "Jackson", "Lee",
-  "Inoue", "Zhu", "Al-Sheikh", "White", "Campbell", "Hayashi", "Jiang", "Al-Mutairi", "Harris", "Clark",
-  "Watanabe", "Hu", "Al-Ansari", "Lewis", "Robinson", "Nakagawa", "Cai", "Al-Rashid", "Walker", "Young",
-  "Tsukamoto", "Deng", "Al-Harbi", "Green", "Reed", "Fujita", "Peng", "Al-Masri", "Hall", "King",
-  "Kato", "Lin", "Al-Mohammed", "Adams", "Carter", "Yamaguchi", "Gao", "Al-Dhaheri", "Nelson", "Baker",
-  "Ueda", "Liang", "Al-Mutlaq", "Mitchell", "Collins", "Kondo", "Xie", "Al-Juhani", "King", "Perez"
+        "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/14.0.3 Safari/605.1.15",
+        "Mozilla/5.0 (Linux; Android 10; SM-G975F) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Mobile Safari/537.36",
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/106.0.0.0 Safari/537.36 Edg/106.0.1370.52",
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/92.0.4515.131 YaBrowser/21.8.1.468 Yowser/2.5 Safari/537.36",
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/106.0.0.0 Safari/537.36",
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:106.0) Gecko/20100101 Firefox/106.0",
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:105.0) Gecko/20100101 Firefox/105.0",
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/107.0.0.0 Safari/537.36",
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/105.0.0.0 Safari/537.36",
+        "Mozilla/5.0 (X11; Linux x86_64; rv:105.0) Gecko/20100101 Firefox/105.0",
     ]
-};
+    FIRST_NAMES = [
+        "Akira", "Li", "Mohammed", "James", "Maria", "Hiroshi", "Wang", "Ali", "John", "Ana",
+        "Yuki", "Zhang", "Fatima", "Robert", "Liza", "Kenji", "Chen", "Aisha", "Michael", "Rosa",
+        "Haruto", "Huang", "Zainab", "David", "Carla", "Sakura", "Lin", "Omar", "William", "Gloria",
+        "Takeshi", "Cheng", "Salma", "Joseph", "Isabel", "Yoshio", "Deng", "Nadia", "Richard", "Sofia",
+    ]
+    LAST_NAMES = [
+        "Tanaka", "Li", "Al-Saud", "Smith", "Garcia", "Suzuki", "Wang", "Al-Mansour", "Johnson", "Rodriguez",
+        "Yamamoto", "Zhang", "Al-Fahad", "Williams", "Lopez", "Nakamura", "Chen", "Al-Hussein", "Brown", "Martinez",
+        "Sato", "Huang", "Al-Ghamdi", "Jones", "Gonzalez", "Takahashi", "Lin", "Al-Jaber", "Davis", "Sanchez",
+    ]
 
-// Helper functions
-function generateRandomName() {
-    const first = CONFIG.FIRST_NAMES[Math.floor(Math.random() * CONFIG.FIRST_NAMES.length)];
-    const last = CONFIG.LAST_NAMES[Math.floor(Math.random() * CONFIG.LAST_NAMES.length)];
-    return { first, last };
-}
+# Helper functions
+def generate_random_name():
+    first = random.choice(Config.FIRST_NAMES)
+    last = random.choice(Config.LAST_NAMES)
+    return {"first": first, "last": last}
 
-function generateUsername(first, last) {
-    const randomNum = Math.floor(1000 + Math.random() * 9000);
-    const firstNormalized = unidecode(first).toLowerCase();
-    const lastNormalized = unidecode(last).toLowerCase();
-    return `${firstNormalized}.${lastNormalized}${randomNum}`;
-}
+def generate_username(first, last):
+    random_num = random.randint(1000, 9999)
+    first_normalized = unidecode.unidecode(first).lower()
+    last_normalized = unidecode.unidecode(last).lower()
+    return f"{first_normalized}.{last_normalized}{random_num}"
 
-function parseBirthday(bdParam) {
-    // Handle various date formats: 15-5-1995, 15/5/1995, 15 5 1995
-    const formats = [
-        { regex: /^(\d{1,2})[-/ ](\d{1,2})[-/ ](\d{4})$/, parts: [1, 2, 3] },
-        { regex: /^(\d{4})[-/ ](\d{1,2})[-/ ](\d{1,2})$/, parts: [3, 2, 1] }
-    ];
+def generate_random_birthday():
+    current_year = datetime.now().year
+    birth_year = current_year - random.randint(Config.MIN_AGE, Config.MAX_AGE)
+    birth_month = random.randint(1, 12)
+    birth_day = random.randint(1, 28)  # Safe day for all months
+    return f"{birth_day} {birth_month} {birth_year}"
 
-    for (const format of formats) {
-        const match = bdParam.match(format.regex);
-        if (match) {
-            return `${match[format.parts[0]]} ${match[format.parts[1]]} ${match[format.parts[2]]}`;
-        }
-    }
+def parse_birthday(bd_param):
+    if not bd_param:
+        return generate_random_birthday()
     
-    return CONFIG.DEFAULT_BIRTHDAY;
-}
-
-async function getWorkingProxy() {
-    try {
-        const proxy = new FreeProxy({ random: true, timeout: 1000 }).get();
-        console.log(`Using proxy: ${proxy}`);
-        return proxy;
-    } catch (error) {
-        console.log("Failed to get proxy, continuing without proxy");
-        return null;
-    }
-}
-
-function saveAccountToFile(account) {
-    const filePath = path.join(__dirname, 'accounts.json');
-    let accounts = [];
+    # Handle various date formats: 15-5-1995, 15/5/1995, 15 5 1995
+    separators = ['-', '/', ' ']
+    for sep in separators:
+        if sep in bd_param:
+            parts = bd_param.split(sep)
+            if len(parts) == 3:
+                try:
+                    day = int(parts[0])
+                    month = int(parts[1])
+                    year = int(parts[2])
+                    
+                    # Validate date
+                    if 1 <= day <= 31 and 1 <= month <= 12 and 1900 < year < datetime.now().year - Config.MIN_AGE:
+                        return f"{day} {month} {year}"
+                except ValueError:
+                    continue
     
-    try {
-        if (fs.existsSync(filePath)) {
-            accounts = JSON.parse(fs.readFileSync(filePath, 'utf8'));
-        }
-    } catch (err) {
-        console.error("Error reading accounts file:", err);
-    }
-    
-    accounts.push(account);
-    fs.writeFileSync(filePath, JSON.stringify(accounts, null, 2));
-}
+    return generate_random_birthday()
 
-// Custom account creation endpoint
-app.get('/api/create', async (req, res) => {
-    const startTime = Date.now();
+def generate_strong_password(length=12):
+    chars = string.ascii_letters + string.digits + "!@#$%^&*()"
+    while True:
+        password = ''.join(random.choice(chars) for _ in range(length))
+        # Ensure password has at least one of each: uppercase, lowercase, digit, special
+        if (any(c.isupper() for c in password and 
+            any(c.islower() for c in password) and 
+            any(c.isdigit() for c in password) and 
+            any(c in "!@#$%^&*()" for c in password)):
+            return password
+
+def get_working_proxy():
+    try:
+        proxy = FreeProxy(rand=True, timeout=1).get()
+        print(f"Using proxy: {proxy}")
+        return proxy
+    except Exception as e:
+        print("Failed to get proxy, continuing without proxy")
+        return None
+
+def save_account_to_file(account):
+    file_path = Path(__file__).parent / 'accounts.json'
+    accounts = []
     
-    try {
-        // Parse query parameters with fallbacks
-        const name = req.query.name || (() => {
-            const { first, last } = generateRandomName();
-            return `${first} ${last}`;
-        })();
+    try:
+        if file_path.exists():
+            with open(file_path, 'r') as f:
+                accounts = json.load(f)
+    except Exception as e:
+        print(f"Error reading accounts file: {e}")
+    
+    accounts.append(account)
+    with open(file_path, 'w') as f:
+        json.dump(accounts, f, indent=2)
+
+# Custom account creation endpoint
+@app.route('/api/create', methods=['GET'])
+def create_custom_account():
+    start_time = time.time()
+    
+    try:
+        # Parse query parameters with fallbacks
+        name = request.args.get('name')
+        if not name:
+            name_data = generate_random_name()
+            name = f"{name_data['first']} {name_data['last']}"
         
-        const birthday = req.query.birthday ? parseBirthday(req.query.birthday) : CONFIG.DEFAULT_BIRTHDAY;
-        const gender = req.query.gender || CONFIG.DEFAULT_GENDER;
-        const username = req.query.username || name.toLowerCase().replace(/\s+/g, '.') + Math.floor(100 + Math.random() * 900);
-        const password = req.query.password || CONFIG.DEFAULT_PASSWORD;
+        birthday = parse_birthday(request.args.get('birthday'))
+        gender = request.args.get('gender', Config.DEFAULT_GENDER).lower()
+        username = request.args.get('username')
+        password = request.args.get('password', generate_strong_password())
+        
+        if not username:
+            first, last = name.split(' ', 1) if ' ' in name else (name, '')
+            username = f"{first.lower()}.{last.lower()}{random.randint(100, 999)}" if last else f"{first.lower()}{random.randint(1000, 9999)}"
 
-        const accountInfo = {
-            name,
-            birthday,
-            gender: gender === "1" ? "male" : "female",
-            username,
-            email: `${username}@gmail.com`,
-            password
-        };
+        account_info = {
+            "name": name,
+            "birthday": birthday,
+            "gender": gender if gender in ["male", "female"] else Config.DEFAULT_GENDER,
+            "username": username,
+            "email": f"{username}@gmail.com",
+            "password": password
+        }
 
-        const result = await createAccount(accountInfo);
-        saveAccountToFile(result);
+        result = create_account(account_info)
+        save_account_to_file(result)
 
-        res.json({
-            success: true,
-            data: {
-                account: result
+        response = {
+            "success": True,
+            "data": {
+                "account": result
             },
-            meta: {
-                duration: `${(Date.now() - startTime) / 1000} seconds`,
-                method: "custom"
+            "meta": {
+                "duration": f"{(time.time() - start_time):.2f} seconds",
+                "method": "custom"
             }
-        });
-    } catch (error) {
-        console.error("API Error:", error);
-        res.status(500).json({
-            success: false,
-            error: "Internal server error",
-            details: error.message
-        });
-    }
-});
+        }
+        return jsonify(response)
+    except Exception as e:
+        print(f"API Error: {e}")
+        return jsonify({
+            "success": False,
+            "error": "Internal server error",
+            "details": str(e)
+        }), 500
 
-// Random account creation endpoint
-app.get('/api/create/random', async (req, res) => {
-    const startTime = Date.now();
+# Random account creation endpoint
+@app.route('/api/create/random', methods=['GET'])
+def create_random_accounts():
+    start_time = time.time()
     
-    try {
-        const limit = Math.min(
-            parseInt(req.query.limit) || 1,
-            CONFIG.MAX_RANDOM_ACCOUNTS
-        );
-
-        const accounts = [];
-        const errors = [];
+    try:
+        limit = request.args.get('limit', default=1, type=int)
+        limit = min(limit, Config.MAX_RANDOM_ACCOUNTS)
         
-        for (let i = 0; i < limit; i++) {
-            try {
-                const { first, last } = generateRandomName();
-                const username = generateUsername(first, last);
+        accounts = []
+        errors = []
+        
+        for i in range(limit):
+            try:
+                name_data = generate_random_name()
+                username = generate_username(name_data['first'], name_data['last'])
                 
-                const accountInfo = {
-                    name: `${first} ${last}`,
-                    birthday: CONFIG.DEFAULT_BIRTHDAY,
-                    gender: Math.random() > 0.5 ? "male" : "female",
-                    username,
-                    email: `${username}@gmail.com`,
-                    password: CONFIG.DEFAULT_PASSWORD
-                };
+                account_info = {
+                    "name": f"{name_data['first']} {name_data['last']}",
+                    "birthday": generate_random_birthday(),
+                    "gender": random.choice(["male", "female"]),
+                    "username": username,
+                    "email": f"{username}@gmail.com",
+                    "password": generate_strong_password()
+                }
 
-                const result = await createAccount(accountInfo);
-                accounts.push(result);
-                saveAccountToFile(result);
-            } catch (error) {
-                errors.push({
-                    attempt: i + 1,
-                    error: error.message
-                });
-            }
-        }
+                result = create_account(account_info)
+                accounts.append(result)
+                save_account_to_file(result)
+            except Exception as e:
+                errors.append({
+                    "attempt": i + 1,
+                    "error": str(e)
+                })
 
-        const response = {
-            success: true,
-            meta: {
-                requested: limit,
-                created: accounts.length,
-                failed: errors.length,
-                duration: `${(Date.now() - startTime) / 1000} seconds`,
-                method: "random"
+        response = {
+            "success": True,
+            "meta": {
+                "requested": limit,
+                "created": len(accounts),
+                "failed": len(errors),
+                "duration": f"{(time.time() - start_time):.2f} seconds",
+                "method": "random"
             },
-            data: {
-                accounts: accounts.reduce((acc, account, index) => {
-                    acc[index + 1] = account;
-                    return acc;
-                }, {})
+            "data": {
+                "accounts": {i+1: acc for i, acc in enumerate(accounts)}
             },
-            errors: errors.length > 0 ? errors : undefined
-        };
-
-        res.json(response);
-    } catch (error) {
-        console.error("API Error:", error);
-        res.status(500).json({
-            success: false,
-            error: "Internal server error",
-            details: error.message
-        });
-    }
-});
-
-// Function to create a single account
-async function createAccount(accountInfo) {
-    let driver;
-    try {
-        const options = new firefox.Options();
-        options.headless();
-        options.setPreference("general.useragent.override", 
-            CONFIG.USER_AGENTS[Math.floor(Math.random() * CONFIG.USER_AGENTS.length)]);
-
-        // Configure proxy if available
-        const proxy = await getWorkingProxy();
-        if (proxy) {
-            const [host, port] = proxy.split(':');
-            options.setPreference('network.proxy.type', 1);
-            options.setPreference('network.proxy.http', host);
-            options.setPreference('network.proxy.http_port', parseInt(port));
-            options.setPreference('network.proxy.ssl', host);
-            options.setPreference('network.proxy.ssl_port', parseInt(port));
+            "errors": errors if errors else None
         }
+        return jsonify(response)
+    except Exception as e:
+        print(f"API Error: {e}")
+        return jsonify({
+            "success": False,
+            "error": "Internal server error",
+            "details": str(e)
+        }), 500
 
-        driver = await new Builder()
-            .forBrowser('firefox')
-            .setFirefoxOptions(options)
-            .build();
+# Function to create a single account
+def create_account(account_info):
+    driver = None
+    try:
+        options = Options()
+        options.headless = True
+        user_agent = random.choice(Config.USER_AGENTS)
+        options.set_preference("general.useragent.override", user_agent)
 
-        const device_uuid = uuidv4();
-        console.log(`Creating account for ${accountInfo.email} with UUID: ${device_uuid}`);
+        # Configure proxy if available
+        proxy = get_working_proxy()
+        if proxy:
+            host, port = proxy.split(':')
+            options.set_preference('network.proxy.type', 1)
+            options.set_preference('network.proxy.http', host)
+            options.set_preference('network.proxy.http_port', int(port))
+            options.set_preference('network.proxy.ssl', host)
+            options.set_preference('network.proxy.ssl_port', int(port))
 
-        await driver.get("https://accounts.google.com/signup/v2/createaccount?flowName=GlifWebSignIn&flowEntry=SignUp");
+        driver = webdriver.Firefox(options=options)
+        device_uuid = str(uuid.uuid4())
+        print(f"Creating account for {account_info['email']} with UUID: {device_uuid}")
 
-        // Fill in the name fields
-        const firstName = await driver.wait(until.elementLocated(By.name("firstName")), 10000);
-        const lastName = await driver.findElement(By.name("lastName"));
-        await firstName.clear();
-        await firstName.sendKeys(accountInfo.name.split(' ')[0]);
-        await lastName.clear();
-        await lastName.sendKeys(accountInfo.name.split(' ')[1]);
+        driver.get("https://accounts.google.com/signup/v2/createaccount?flowName=GlifWebSignIn&flowEntry=SignUp")
 
-        const nextButton = await driver.wait(until.elementLocated(By.xpath("//span[text()='Next']")), 10000);
-        await nextButton.click();
-
-        // Fill birthday and gender
-        const birthdayElements = accountInfo.birthday.split(' ');
-        const monthDropdown = new Select(await driver.findElement(By.id("month")));
-        await monthDropdown.selectByValue(birthdayElements[1]);
+        # Fill in the name fields
+        first_name = WebDriverWait(driver, 10).until(
+            EC.presence_of_element_located((By.NAME, "firstName")))
+        last_name = driver.find_element(By.NAME, "lastName")
         
-        const dayField = await driver.findElement(By.id("day"));
-        await dayField.clear();
-        await dayField.sendKeys(birthdayElements[0]);
-        
-        const yearField = await driver.findElement(By.id("year"));
-        await yearField.clear();
-        await yearField.sendKeys(birthdayElements[2]);
-        
-        const genderDropdown = new Select(await driver.findElement(By.id("gender")));
-        await genderDropdown.selectByValue(accountInfo.gender === "male" ? "1" : "2");
-        
-        const nextButton2 = await driver.wait(until.elementLocated(By.xpath("//span[text()='Next']")), 10000);
-        await nextButton2.click();
+        name_parts = account_info['name'].split(' ', 1)
+        first_name.clear()
+        first_name.send_keys(name_parts[0])
+        last_name.clear()
+        last_name.send_keys(name_parts[1] if len(name_parts) > 1 else "")
 
-        // Create custom email
-        await driver.sleep(2000);
-        try {
-            const createOwnOption = await driver.wait(until.elementLocated(By.xpath("//div[contains(text(), 'Create your own Gmail address')]")), 5000);
-            await createOwnOption.click();
-        } catch (error) {
-            console.log("No 'Create your own' option found");
-        }
+        next_button = WebDriverWait(driver, 10).until(
+            EC.element_to_be_clickable((By.XPATH, "//span[text()='Next']")))
+        next_button.click()
 
-        const usernameField = await driver.wait(until.elementLocated(By.name("Username")), 10000);
-        await usernameField.clear();
-        await usernameField.sendKeys(accountInfo.username);
+        # Fill birthday and gender
+        day, month, year = account_info['birthday'].split()
+        month_dropdown = Select(driver.find_element(By.ID, "month"))
+        month_dropdown.select_by_value(month)
         
-        const nextButton3 = await driver.wait(until.elementLocated(By.xpath("//span[text()='Next']")), 10000);
-        await nextButton3.click();
-
-        // Enter and confirm password
-        const passwordField = await driver.wait(until.elementLocated(By.name("Passwd")), 10000);
-        await passwordField.clear();
-        await passwordField.sendKeys(accountInfo.password);
+        day_field = driver.find_element(By.ID, "day"))
+        day_field.clear()
+        day_field.send_keys(day)
         
-        const confirmPasswd = await driver.wait(until.elementLocated(By.name("PasswdAgain")), 10000);
-        await confirmPasswd.clear();
-        await confirmPasswd.sendKeys(accountInfo.password);
+        year_field = driver.find_element(By.ID, "year"))
+        year_field.clear()
+        year_field.send_keys(year)
         
-        const nextButton4 = await driver.wait(until.elementLocated(By.xpath("//span[text()='Next']")), 10000);
-        await nextButton4.click();
+        gender_dropdown = Select(driver.find_element(By.ID, "gender"))
+        gender_value = "1" if account_info['gender'].lower() == "male" else "2"
+        gender_dropdown.select_by_value(gender_value)
+        
+        next_button2 = WebDriverWait(driver, 10).until(
+            EC.element_to_be_clickable((By.XPATH, "//span[text()='Next']")))
+        next_button2.click()
 
-        // Skip phone number and recovery email
-        try {
-            const skipButton = await driver.wait(until.elementLocated(By.xpath("//span[contains(text(),'Skip')]")), 5000);
-            await skipButton.click();
-        } catch (error) {
-            console.log("No phone number verification step");
-        }
+        # Create custom email
+        time.sleep(2)
+        try:
+            create_own_option = WebDriverWait(driver, 5).until(
+                EC.element_to_be_clickable((By.XPATH, "//div[contains(text(), 'Create your own Gmail address')]")))
+            create_own_option.click()
+        except:
+            print("No 'Create your own' option found")
 
-        // Agree to terms
-        const agreeButton = await driver.wait(until.elementLocated(By.xpath("//span[text()='I agree']")), 10000);
-        await agreeButton.click();
+        username_field = WebDriverWait(driver, 10).until(
+            EC.presence_of_element_located((By.NAME, "Username")))
+        username_field.clear()
+        username_field.send_keys(account_info['username'])
+        
+        next_button3 = WebDriverWait(driver, 10).until(
+            EC.element_to_be_clickable((By.XPATH, "//span[text()='Next']")))
+        next_button3.click()
 
-        // Wait for account creation to complete
-        await driver.wait(until.urlContains("myaccount.google.com"), 30000);
+        # Enter and confirm password
+        password_field = WebDriverWait(driver, 10).until(
+            EC.presence_of_element_located((By.NAME, "Passwd")))
+        password_field.clear()
+        password_field.send_keys(account_info['password'])
+        
+        confirm_passwd = WebDriverWait(driver, 10).until(
+            EC.presence_of_element_located((By.NAME, "PasswdAgain")))
+        confirm_passwd.clear()
+        confirm_passwd.send_keys(account_info['password'])
+        
+        next_button4 = WebDriverWait(driver, 10).until(
+            EC.element_to_be_clickable((By.XPATH, "//span[text()='Next']")))
+        next_button4.click()
+
+        # Skip phone number and recovery email
+        try:
+            skip_button = WebDriverWait(driver, 5).until(
+                EC.element_to_be_clickable((By.XPATH, "//span[contains(text(),'Skip')]")))
+            skip_button.click()
+        except:
+            print("No phone number verification step")
+
+        # Agree to terms
+        agree_button = WebDriverWait(driver, 10).until(
+            EC.element_to_be_clickable((By.XPATH, "//span[text()='I agree']")))
+        agree_button.click()
+
+        # Wait for account creation to complete
+        WebDriverWait(driver, 30).until(
+            lambda d: "myaccount.google.com" in d.current_url)
 
         return {
-            ...accountInfo,
-            status: "created",
-            timestamp: new Date().toISOString(),
-            deviceId: device_uuid
-        };
-    } catch (error) {
-        console.error("Account creation failed:", error);
-        throw new Error(`Failed to create account ${accountInfo.email}: ${error.message}`);
-    } finally {
-        if (driver) {
-            try {
-                await driver.quit();
-            } catch (error) {
-                console.error("Error closing driver:", error);
-            }
+            **account_info,
+            "status": "created",
+            "timestamp": datetime.now().isoformat(),
+            "deviceId": device_uuid
         }
-    }
-}
+    except Exception as e:
+        print(f"Account creation failed: {e}")
+        raise Exception(f"Failed to create account {account_info['email']}: {str(e)}")
+    finally:
+        if driver:
+            try:
+                driver.quit()
+            except Exception as e:
+                print(f"Error closing driver: {e}")
 
-// Get all created accounts
-app.get('/api/accounts', (req, res) => {
-    try {
-        const filePath = path.join(__dirname, 'accounts.json');
-        if (fs.existsSync(filePath)) {
-            const accounts = JSON.parse(fs.readFileSync(filePath, 'utf8'));
-            return res.json({
-                success: true,
-                count: accounts.length,
-                data: {
-                    accounts
+# Get all created accounts
+@app.route('/api/accounts', methods=['GET'])
+def get_accounts():
+    try:
+        file_path = Path(__file__).parent / 'accounts.json'
+        if file_path.exists():
+            with open(file_path, 'r') as f:
+                accounts = json.load(f)
+            return jsonify({
+                "success": True,
+                "count": len(accounts),
+                "data": {
+                    "accounts": accounts
                 }
-            });
-        }
-        res.json({
-            success: true,
-            count: 0,
-            data: {
-                accounts: []
+            })
+        return jsonify({
+            "success": True,
+            "count": 0,
+            "data": {
+                "accounts": []
             }
-        });
-    } catch (error) {
-        res.status(500).json({
-            success: false,
-            error: "Failed to read accounts data"
-        });
-    }
-});
+        })
+    except Exception as e:
+        return jsonify({
+            "success": False,
+            "error": "Failed to read accounts data"
+        }), 500
 
-// Health check endpoint
-app.get('/', (req, res) => {
-    res.json({
-        status: 'running',
-        service: 'Gmail Account Creator API',
-        version: '1.1.0',
-        endpoints: {
-            createCustom: {
-                method: 'GET',
-                path: '/api/create',
-                description: 'Create custom Gmail account',
-                parameters: {
-                    name: 'Full name (optional)',
-                    birthday: 'Birthday in format "DD-MM-YYYY", "DD/MM/YYYY", or "DD MM YYYY" (optional)',
-                    gender: 'Gender ("1" for male, "2" for female) (optional)',
-                    username: 'Desired username (optional)',
-                    password: 'Password for the account (optional)'
+# Health check endpoint
+@app.route('/', methods=['GET'])
+def health_check():
+    return jsonify({
+        "status": "running",
+        "service": "Gmail Account Creator API",
+        "version": "1.1.0",
+        "endpoints": {
+            "createCustom": {
+                "method": "GET",
+                "path": "/api/create",
+                "description": "Create custom Gmail account",
+                "parameters": {
+                    "name": "Full name (optional)",
+                    "birthday": 'Birthday in format "DD-MM-YYYY", "DD/MM/YYYY", or "DD MM YYYY" (optional)',
+                    "gender": "Gender ('male' or 'female') (optional)",
+                    "username": "Desired username (optional)",
+                    "password": "Password for the account (optional)"
                 },
-                example: '/api/create?name=John+Doe&birthday=15-5-1995&gender=1&username=johndoe.alpha&password=Str0ngP@ss'
+                "example": "/api/create?name=John+Doe&birthday=15-5-1995&gender=male&username=johndoe.alpha&password=Str0ngP@ss"
             },
-            createRandom: {
-                method: 'GET',
-                path: '/api/create/random',
-                description: `Create random Gmail accounts (max ${CONFIG.MAX_RANDOM_ACCOUNTS})`,
-                parameters: {
-                    limit: 'Number of accounts to create (optional, default 1)'
+            "createRandom": {
+                "method": "GET",
+                "path": "/api/create/random",
+                "description": f"Create random Gmail accounts (max {Config.MAX_RANDOM_ACCOUNTS})",
+                "parameters": {
+                    "limit": "Number of accounts to create (optional, default 1)"
                 },
-                example: '/api/create/random?limit=3'
+                "example": "/api/create/random?limit=3"
             },
-            getAccounts: {
-                method: 'GET',
-                path: '/api/accounts',
-                description: 'Get all created accounts'
+            "getAccounts": {
+                "method": "GET",
+                "path": "/api/accounts",
+                "description": "Get all created accounts"
             }
         }
-    });
-});
+    })
 
-// Start the server
-app.listen(PORT, () => {
-    console.log(`Server running on port ${PORT}`);
-    console.log('Available endpoints:');
-    console.log(`- Custom account: GET /api/create?name=John&birthday=15-5-1995&gender=1&username=john123&password=pass123`);
-    console.log(`- Random accounts: GET /api/create/random?limit=3`);
-    console.log(`- List accounts: GET /api/accounts`);
-});
+if __name__ == '__main__':
+    print(f"Server running on port {PORT}")
+    print("Available endpoints:")
+    print("- Custom account: GET /api/create?name=John&birthday=15-5-1995&gender=male&username=john123&password=pass123")
+    print("- Random accounts: GET /api/create/random?limit=3")
+    print("- List accounts: GET /api/accounts")
+    app.run(host='0.0.0.0', port=PORT)

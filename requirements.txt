@@ -3,4 +3,4 @@ requests
 flask
 webdriver-manager
 unidecode
-fp
+free-proxy

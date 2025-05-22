@@ -51,16 +51,20 @@ class Config:
     ]
 
 # Helper functions
-def generate_random_name():
+def generate_random_name(include_last=True):
     first = random.choice(Config.FIRST_NAMES)
-    last = random.choice(Config.LAST_NAMES)
-    return {"first": first, "last": last}
+    if include_last and random.random() > 0.2:  # 80% chance of having last name
+        last = random.choice(Config.LAST_NAMES)
+        return {"first": first, "last": last}
+    return {"first": first, "last": ""}
 
-def generate_username(first, last):
+def generate_username(first, last=""):
     random_num = random.randint(1000, 9999)
     first_normalized = unidecode.unidecode(first).lower()
-    last_normalized = unidecode.unidecode(last).lower()
-    return f"{first_normalized}.{last_normalized}{random_num}"
+    if last:
+        last_normalized = unidecode.unidecode(last).lower()
+        return f"{first_normalized}.{last_normalized}{random_num}"
+    return f"{first_normalized}{random_num}"
 
 def generate_random_birthday():
     current_year = datetime.now().year
@@ -134,10 +138,13 @@ def create_custom_account():
     
     try:
         # Parse query parameters with fallbacks
-        name = request.args.get('name')
-        if not name:
-            name_data = generate_random_name()
-            name = f"{name_data['first']} {name_data['last']}"
+        firstname = request.args.get('firstname', '').strip()
+        lastname = request.args.get('lastname', '').strip()
+        
+        if not firstname:
+            name_data = generate_random_name(include_last=False)
+            firstname = name_data['first']
+            lastname = name_data['last']
         
         birthday = parse_birthday(request.args.get('birthday'))
         gender = request.args.get('gender', Config.DEFAULT_GENDER).lower()
@@ -145,11 +152,12 @@ def create_custom_account():
         password = request.args.get('password', generate_strong_password())
         
         if not username:
-            first, last = name.split(' ', 1) if ' ' in name else (name, '')
-            username = f"{first.lower()}.{last.lower()}{random.randint(100, 999)}" if last else f"{first.lower()}{random.randint(1000, 9999)}"
+            username = generate_username(firstname, lastname)
 
         account_info = {
-            "name": name,
+            "name": f"{firstname} {lastname}".strip(),
+            "firstname": firstname,
+            "lastname": lastname,
             "birthday": birthday,
             "gender": gender if gender in ["male", "female"] else Config.DEFAULT_GENDER,
             "username": username,
@@ -193,11 +201,13 @@ def create_random_accounts():
         
         for i in range(limit):
             try:
-                name_data = generate_random_name()
+                name_data = generate_random_name(include_last=True)
                 username = generate_username(name_data['first'], name_data['last'])
                 
                 account_info = {
-                    "name": f"{name_data['first']} {name_data['last']}",
+                    "name": f"{name_data['first']} {name_data['last']}".strip(),
+                    "firstname": name_data['first'],
+                    "lastname": name_data['last'],
                     "birthday": generate_random_birthday(),
                     "gender": random.choice(["male", "female"]),
                     "username": username,
@@ -267,11 +277,10 @@ def create_account(account_info):
             EC.presence_of_element_located((By.NAME, "firstName")))
         last_name = driver.find_element(By.NAME, "lastName")
         
-        name_parts = account_info['name'].split(' ', 1)
         first_name.clear()
-        first_name.send_keys(name_parts[0])
+        first_name.send_keys(account_info['firstname'])
         last_name.clear()
-        last_name.send_keys(name_parts[1] if len(name_parts) > 1 else "")
+        last_name.send_keys(account_info['lastname'])
 
         next_button = WebDriverWait(driver, 10).until(
             EC.element_to_be_clickable((By.XPATH, "//span[text()='Next']")))
@@ -370,20 +379,21 @@ def health_check():
     return jsonify({
         "status": "running",
         "service": "Gmail Account Creator API",
-        "version": "1.1.0",
+        "version": "1.2.0",
         "endpoints": {
             "createCustom": {
                 "method": "GET",
                 "path": "/api/create",
                 "description": "Create custom Gmail account",
                 "parameters": {
-                    "name": "Full name (optional)",
+                    "firstname": "First name (required)",
+                    "lastname": "Last name (optional)",
                     "birthday": 'Birthday in format "DD-MM-YYYY", "DD/MM/YYYY", or "DD MM YYYY" (optional)',
                     "gender": "Gender ('male' or 'female') (optional)",
                     "username": "Desired username (optional)",
                     "password": "Password for the account (optional)"
                 },
-                "example": "/api/create?name=John+Doe&birthday=15-5-1995&gender=male&username=johndoe.alpha&password=Str0ngP@ss"
+                "example": "/api/create?firstname=John&lastname=Doe&birthday=15-5-1995&gender=male&username=johndoe.alpha&password=Str0ngP@ss"
             },
             "createRandom": {
                 "method": "GET",
@@ -400,6 +410,6 @@ def health_check():
 if __name__ == '__main__':
     print(f"Server running on port {PORT}")
     print("Available endpoints:")
-    print("- Custom account: GET /api/create?name=John&birthday=15-5-1995&gender=male&username=john123&password=pass123")
+    print("- Custom account: GET /api/create?firstname=John&lastname=Doe&birthday=15-5-1995&gender=male&username=john123&password=pass123")
     print("- Random accounts: GET /api/create/random?limit=3")
     app.run(host='0.0.0.0', port=PORT)

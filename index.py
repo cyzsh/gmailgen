@@ -100,7 +100,7 @@ def generate_strong_password(length=12):
         if (any(c.isupper() for c in password and 
             any(c.islower() for c in password) and 
             any(c.isdigit() for c in password) and 
-            any(c in "!@#$%^&*()" for c in password)):
+            any(c in "!@#$%^&*()" for c in password))):
             return password
 
 def get_working_proxy():

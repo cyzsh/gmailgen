@@ -97,10 +97,10 @@ def generate_strong_password(length=12):
     while True:
         password = ''.join(random.choice(chars) for _ in range(length))
         # Ensure password has at least one of each: uppercase, lowercase, digit, special
-        if (any(c.isupper() for c in password and 
-            any(c.islower() for c in password) and 
-            any(c.isdigit() for c in password) and 
-            any(c in "!@#$%^&*()" for c in password))):
+        if (any(c.isupper() for c in password) and \
+           (any(c.islower() for c in password) and \
+           (any(c.isdigit() for c in password) and \
+           (any(c in "!@#$%^&*()" for c in password)):
             return password
 
 def get_working_proxy():
@@ -363,35 +363,7 @@ def create_account(account_info):
                 driver.quit()
             except Exception as e:
                 print(f"Error closing driver: {e}")
-
-# Get all created accounts
-@app.route('/api/accounts', methods=['GET'])
-def get_accounts():
-    try:
-        file_path = Path(__file__).parent / 'accounts.json'
-        if file_path.exists():
-            with open(file_path, 'r') as f:
-                accounts = json.load(f)
-            return jsonify({
-                "success": True,
-                "count": len(accounts),
-                "data": {
-                    "accounts": accounts
-                }
-            })
-        return jsonify({
-            "success": True,
-            "count": 0,
-            "data": {
-                "accounts": []
-            }
-        })
-    except Exception as e:
-        return jsonify({
-            "success": False,
-            "error": "Failed to read accounts data"
-        }), 500
-
+                
 # Health check endpoint
 @app.route('/', methods=['GET'])
 def health_check():
@@ -421,11 +393,6 @@ def health_check():
                     "limit": "Number of accounts to create (optional, default 1)"
                 },
                 "example": "/api/create/random?limit=3"
-            },
-            "getAccounts": {
-                "method": "GET",
-                "path": "/api/accounts",
-                "description": "Get all created accounts"
             }
         }
     })
@@ -435,5 +402,4 @@ if __name__ == '__main__':
     print("Available endpoints:")
     print("- Custom account: GET /api/create?name=John&birthday=15-5-1995&gender=male&username=john123&password=pass123")
     print("- Random accounts: GET /api/create/random?limit=3")
-    print("- List accounts: GET /api/accounts")
     app.run(host='0.0.0.0', port=PORT)

@@ -97,10 +97,10 @@ def generate_strong_password(length=12):
     while True:
         password = ''.join(random.choice(chars) for _ in range(length))
         # Ensure password has at least one of each: uppercase, lowercase, digit, special
-        if (any(c.isupper() for c in password) and \
-           (any(c.islower() for c in password) and \
-           (any(c.isdigit() for c in password) and \
-           (any(c in "!@#$%^&*()" for c in password))):
+        if (any(c.isupper() for c in password)) and \
+           (any(c.islower() for c in password)) and \
+           (any(c.isdigit() for c in password)) and \
+           (any(c in "!@#$%^&*()" for c in password)):
             return password
 
 def get_working_proxy():
